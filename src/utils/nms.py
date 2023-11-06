@@ -1,5 +1,5 @@
 import torch
-from utils.iou import intersection_over_union
+from iou import intersection_over_union
 
 def non_maximum_suppression(
         bboxes,
@@ -26,3 +26,12 @@ def non_maximum_suppression(
         result.append(target_bbox)
     
     return result
+
+
+if __name__ == "__main__":
+    test_predictions = torch.tensor([
+        [0, .6, 0, 0, 100, 100],
+        [0, .7, 0, 0, 200, 100],
+    ])
+
+    print(non_maximum_suppression(test_predictions, .5, .5))
