@@ -20,11 +20,9 @@ def non_maximum_suppression(
 
         bboxes = [
             bbox for bbox in bboxes
-            if (bbox[0] != target_bbox[0]) or 
-                (intersection_over_union( torch.tensor(target_bbox[2:]), torch.tensor(bbox[2:])) < iou_threshhold)
+            if (bbox[0] != target_bbox[0]) or # ignore another class
+                (intersection_over_union( torch.tensor(target_bbox[2:]), torch.tensor(bbox[2:])) < iou_threshhold) # ignore bbox that is lower that iou_threshold
         ]
         result.append(target_bbox)
     
     return result
-
-    
