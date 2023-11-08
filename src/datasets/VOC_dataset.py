@@ -2,10 +2,12 @@ import torch
 import os
 from PIL import Image
 import numpy as np
-
+import cv2
+from torchvision.utils import draw_bounding_boxes
+from utils.misc import xywh2minmax, get_cellbox_to_bboxes
 
 class VOCDataset(torch.utils.data.Dataset):
-    def __init__(self, txt_file, image_dir, label_dir, S=7, B=2, C=20, transform=None):
+    def __init__(self, txt_file, image_dir, label_dir, S=7, B=2, C=20, transform=None, steps=None):
         self.file_list = []
         with open(txt_file, "r") as f:
             for line in f.readlines():
@@ -13,6 +15,7 @@ class VOCDataset(torch.utils.data.Dataset):
 
         self.image_dir = image_dir
         self.label_dir = label_dir
+        self.steps = steps
 
         # self.images = []
         # self.labels = []
@@ -29,9 +32,13 @@ class VOCDataset(torch.utils.data.Dataset):
         self.C = C
 
     def __len__(self):
-        return len(self.file_list)
+        if self.steps is not None:
+            return self.steps
+        else:
+            return len(self.file_list)
 
     def __getitem__(self, index):
+        index = index%(len(self.file_list))
         target_file = self.file_list[index]
         boxes = None
         with open("{}/{}.txt".format(self.label_dir, target_file), 'r') as f:
@@ -39,6 +46,7 @@ class VOCDataset(torch.utils.data.Dataset):
                 list(map(np.float32, labels.replace("\n", "").split())) 
                 for labels in f.readlines()
             ]
+            print(boxes)
 
         # img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
         img_path = "{}/{}.jpg".format(self.image_dir, target_file)
@@ -50,7 +58,7 @@ class VOCDataset(torch.utils.data.Dataset):
 
         #[..., 20] objectness, 2
         # cx, cy: 0.5, 0.6 => 3.5, 4.2 => 0.5, 0.2
-        label_matrix = np.zeros((self.S, self.S, self.C + 5 * self.B))
+        label_matrix = torch.zeros((self.S, self.S, self.C + 5 * self.B), dtype=torch.float32)
         for box in boxes:
             cls, cx, cy, w, h = box.tolist()
             cls = int(cls)
@@ -72,14 +80,19 @@ class VOCDataset(torch.utils.data.Dataset):
                 label_matrix[i, j, 20] = 1 # prob is 1
                 label_matrix[i, j, cls] = 1
                 label_matrix[i, j, 21:25] = box_coordinates
-        return image, label_matrix 
+        return image, label_matrix
+
+
+def non_zero_bbox(tensor):
+    return tensor[torch.nonzero(tensor[...,1], as_tuple=True)]
 
 
 if __name__ == "__main__":
     from torchvision.transforms import Compose, Resize, Normalize, ToTensor
+    BATCH_SIZE = 8
     transform = Compose([
         ToTensor(),
-        Resize((448,448)),
+        Resize((448,448), antialias=True),
         # Normalize(
         #     (.5,.5,.5),
         #     (.5,.5,.5))
@@ -88,19 +101,72 @@ if __name__ == "__main__":
         "./data/VOC_dataset/8samples.txt", 
         "./data/VOC_dataset/images",
         "./data/VOC_dataset/labels",
-        transform=transform)
+        transform=transform,
+        steps=32*2)
     
     from torch.utils.data import DataLoader
     train_loader = DataLoader(
         dataset=dataset,
-        batch_size=4,
-        num_workers=1,
-        pin_memory=True,
+        batch_size=BATCH_SIZE,
+        num_workers=0,
+        pin_memory=False,
         shuffle=False,
         drop_last=True
     )
-    imgs, targets = next(iter(train_loader))
-    print(imgs)
+
+    images, labels = next(iter(train_loader))
+    cell_bboxes = get_cellbox_to_bboxes(labels)
+    cell_bboxes = cell_bboxes.reshape(BATCH_SIZE, -1, 6)
+
+    ret = []
+    for i in range(BATCH_SIZE):
+        image = images[i] * 255
+        label = cell_bboxes[i]
+
+        label = non_zero_bbox(label)
+        clsses, Confidences, bboxes = label[...,0].numpy().astype(np.str_), label[...,1], label[..., 2:]
+        bboxes *= 448
+        bboxes = xywh2minmax(bboxes)
+
+        ret += [draw_bounding_boxes(image.to(torch.uint8), boxes=bboxes, labels=clsses.tolist(), colors='blue', width=5)]
+
+    ret = torch.stack(ret)
+    print()
+    # exit()
+    from torchvision.utils import make_grid
+    grid = make_grid(ret).permute(1,2,0).numpy()
+
+    cv2.namedWindow('img')
+    cv2.imshow("img", cv2.cvtColor(grid, cv2.COLOR_RGB2BGR))
+    # cv2.imshow("img", grid)
+    cv2.waitKey()
+    
+    exit()
+    # from itertools import cycle
+    step=0
+    # iters = cycle(train_loader)
+    iters = iter(train_loader)
+    while True:
+        try:
+            iamge, target = next(iters)
+        except StopIteration:
+            iters = iter(train_loader)
+        grid = make_grid(iamge).permute(1,2,0).numpy()
+        cv2.imshow("img", cv2.cvtColor(grid, cv2.COLOR_RGB2BGR))
+        cv2.waitKey(5)
+        
+
+        # print(target.shape)
+        print(step)
+        step+=1
+
+    print(train_loader.__len__())
+    # for i, (image, target) in enumerate(train_loader):
+        # print(i, target.shape)
+
+
+    # imgs, targets = next(iter(train_loader))
+    # print(imgs)
 
     # img, target = dataset[0]
     # print(img)

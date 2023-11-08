@@ -1,29 +1,6 @@
 import torch
+from misc import xywh2minmax, minmax2xywh
 
-# minx = x-w/2
-# miny = y-h/2
-# maxx = x+w/2
-# maxy = y+y/2
-def xywh2minmax(bboxes):
-    ret = torch.zeros_like(bboxes).to(torch.float32)
-    ret[..., 0] = bboxes[..., 0] - bboxes[..., 2] /2 # minx
-    ret[..., 1] = bboxes[..., 1] - bboxes[..., 3] /2 # miny
-    ret[..., 2] = bboxes[..., 0] + bboxes[..., 2] /2 # maxx
-    ret[..., 3] = bboxes[..., 1] + bboxes[..., 3] /2 # maxy
-    return ret
-
-
-# cx = (maxx - minx) / 2
-# cy = (maxy - miny) / 2
-# w = maxx - minx
-# h = maxy - miny
-def minmax2xywh(bboxes):
-    ret = torch.zeros_like(bboxes).to(torch.float32)
-    ret[..., 0] = (bboxes[..., 0] + bboxes[..., 2]) /2 # cx
-    ret[..., 1] = (bboxes[..., 1] + bboxes[..., 3]) /2 # cy
-    ret[..., 2] = bboxes[..., 2] - bboxes[..., 0]      # w
-    ret[..., 3] = bboxes[..., 3] - bboxes[..., 1]      # h
-    return ret
 
 
 def intersection_over_union(pred_bboxes, target_bboxes, box_format="minmax"):

@@ -1,6 +1,6 @@
 import torch
 from collections import Counter
-from utils import intersection_over_union
+from utils.iou import intersection_over_union
 
 def mean_average_percision(
         pred_bboxes,
