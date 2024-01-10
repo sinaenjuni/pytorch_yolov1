@@ -1,10 +1,13 @@
+import sys
+sys.path.append("/Users/shinhyeonjun/code/pytorch_yolov1/src")
+
 import torch
 from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 from torch.utils.data import DataLoader
-
-from models.model import Yolov1
 from utils.mAP import mean_average_percision
 from datasets.VOC_dataset import VOCDataset
+from models.model import Yolov1
+from utils.misc import get_cellbox_to_bboxes
 
 
 BATCH_SIZE = 4
@@ -41,15 +44,17 @@ loader = DataLoader(
     dataset=dataset,
     batch_size=BATCH_SIZE,
     pin_memory=PIN_MEMORY,
-    shuffle=True,
-    drop_last=True
+    shuffle=False,
+    drop_last=False
 )
 
 
-
+model.eval()
 for images, targets in loader:
     images, targets = images.to(DEVICE), targets.to(DEVICE)
-    pred = model(images)
+    with torch.no_grad():
+        pred = model(images)
 
-    print(pred.reshape(-1, 7, 7, 30))
-    print(targets.shape)
+    pred_bbox = get_cellbox_to_bboxes(pred.reshape(-1, 7, 7, 30))
+    # print(pred.reshape(-1, 7, 7, 30))
+    # print(targets.shape)

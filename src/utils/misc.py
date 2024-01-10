@@ -33,7 +33,7 @@ def get_cellbox_to_bboxes(cell_tensor, S=7):
     best_bbox_conf, best_bbox_ind = torch.max(cell_tensor[...,[20, 25]], dim=3, keepdim=True)
 
     best_bboxes = (1-best_bbox_ind) * bboxes_1 + best_bbox_ind * bboxes_2
-    cell_indices = torch.stack(torch.meshgrid(torch.arange(S), torch.arange(S), indexing='xy')).permute(1,2,0)[None, ...]
+    cell_indices = torch.stack(torch.meshgrid(torch.arange(S), torch.arange(S), indexing='xy')).permute(1,2,0)[None, ...].to(device=cell_tensor.device)
     best_bboxes[..., :2] = best_bboxes[..., :2] + cell_indices
     best_bboxes /= S
     return torch.cat([classes, best_bbox_conf, best_bboxes], dim=-1)

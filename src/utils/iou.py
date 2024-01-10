@@ -1,5 +1,5 @@
 import torch
-from misc import xywh2minmax, minmax2xywh
+from utils.misc import xywh2minmax, minmax2xywh
 
 
 
